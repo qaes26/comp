@@ -24,7 +24,7 @@ async function executeCode(code, language, res) {
         if (language === 'python') {
             tempFileName = path.join(__dirname, `${tempBaseName}.py`);
             await fs.writeFile(tempFileName, code);
-            executeCommand = `python ${tempFileName}`;
+            executeCommand = `python3 ${tempFileName}`; // استخدام python3 لضمان التوافق على Render
         } else if (language === 'cpp') {
             // مسارات لملفات C++
             tempFileName = path.join(__dirname, `${tempBaseName}.cpp`);
@@ -51,7 +51,7 @@ async function executeCode(code, language, res) {
             }
 
             // 3. أمر التنفيذ (Execution)
-            executeCommand = `${outputFileName}`; // في الأنظمة القائمة على Unix (مثل Render)، يمكننا تشغيله مباشرة
+            executeCommand = `${outputFileName}`; 
         
         } else {
             return res.status(400).json({ error: 'اللغة غير مدعومة. (تدعم: python, cpp)' });
@@ -68,7 +68,7 @@ async function executeCode(code, language, res) {
                     // حذف ملف الكود المصدر (cpp) وملف التنفيذ (ملف التنفيذ)
                     const outputFileName = path.join(__dirname, tempBaseName);
                     await fs.unlink(tempFileName).catch(e => console.error("فشل حذف ملف C++ المصدر:", e.message));
-                    await fs.unlink(outputFileName).catch(e => console.error("فشل حذف ملف C++ التنفيذي:", e.message));
+                    fs.unlink(outputFileName).catch(e => console.error("فشل حذف ملف C++ التنفيذي:", e.message));
                 }
             };
             cleanup();
@@ -111,5 +111,5 @@ app.post('/execute', async (req, res) => {
 // --- تشغيل الخادم ---
 app.listen(PORT, () => {
     console.log(`\n🎉 الخادم جاهز ويعمل على المنفذ: http://localhost:${PORT}`);
-    console.log('ملاحظة: تأكد من أن أمر "python" و "g++" يعملان في الطرفية قبل النشر.');
+    console.log('ملاحظة: تأكد من أن أمر "python3" و "g++" يعملان في الطرفية قبل النشر.');
 });

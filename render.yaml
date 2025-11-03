@@ -1,0 +1,15 @@
+services:
+- type: web
+  name: comp
+  plan: free
+  repo: https://github.com/qaes26/comp
+  branch: master
+  rootDir: /
+  buildCommand: npm install
+  startCommand: npm start
+  envVars:
+  - key: NODE_VERSION
+    value: 22.x
+  # التثبيت يدوياً لأدوات النظام (C++ و Python)
+  autoDeploy: false # مؤقتاً لضمان نجاح التثبيت
+  preBuild: sudo apt-get update && sudo apt-get install -y python3 g++
