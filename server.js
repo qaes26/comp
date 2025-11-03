@@ -6,7 +6,7 @@ const fs = require('fs/promises');
 const path = require('path');
 
 const app = express();
-// استخدام منفذ Render (PORT) إذا كان متوفراً، وإلا استخدم 3000 للتشغيل المحلي
+// استخدام منفذ Render (PORT)
 const PORT = process.env.PORT || 3000;
 
 // --- الإعدادات الوسيطة (Middleware) ---
