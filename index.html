@@ -21,7 +21,7 @@
         /* رأس الصفحة */
         header { 
             background-color: #252526; 
-            color: #007acc; /* لون أزرق جذاب */
+            color: #007acc; 
             padding: 15px 20px; 
             text-align: center; 
             box-shadow: 0 4px 6px rgba(0, 0, 0, 0.2);
@@ -36,7 +36,7 @@
             gap: 20px; 
             max-width: 1200px;
             width: 100%;
-            margin: 0 auto; /* توسيط الحاوية */
+            margin: 0 auto;
         }
         
         /* لوحات المحرر والنتائج */
@@ -75,7 +75,7 @@
             white-space: pre-wrap; 
             overflow-y: auto; 
             background-color: #000000; 
-            color: #00ff00; /* لون أخضر للمخرجات */
+            color: #00ff00; 
             font-family: 'Consolas', 'Courier New', monospace; 
             border-radius: 0 0 10px 10px;
         }
@@ -147,22 +147,35 @@
     </div>
 
     <script>
-        // 1. إعداد محرر Ace Editor
+        // 1. إعداد متغير الرابط (سيتم تخزينه في المتصفح)
+        let EXECUTION_SERVER_URL = localStorage.getItem('renderUrl');
+        
+        // 2. إذا لم يكن الرابط موجوداً، اطلبه من المستخدم
+        if (!EXECUTION_SERVER_URL) {
+            const userUrl = prompt("الرجاء إدخال الرابط العام (Public URL) الذي حصلت عليه من Render. يجب أن يبدأ بـ https:// وينتهي بـ onrender.com");
+            if (userUrl) {
+                // حفظ الرابط وتصحيحه وإضافة مسار /execute
+                EXECUTION_SERVER_URL = userUrl.replace(/\/$/, "") + '/execute'; 
+                localStorage.setItem('renderUrl', EXECUTION_SERVER_URL);
+                alert("تم حفظ الرابط بنجاح! الرابط الآن هو: " + EXECUTION_SERVER_URL);
+            } else {
+                alert("لم يتم إدخال رابط. سيتم استخدام رابط محلي (localhost).");
+                EXECUTION_SERVER_URL = 'http://localhost:3000/execute';
+            }
+        } else {
+             // alert("الخادم الحالي هو: " + EXECUTION_SERVER_URL);
+        }
+
+        // 3. إعداد محرر Ace Editor
         var editor = ace.edit("editor");
-        editor.setTheme("ace/theme/dracula"); // ثيم داكن وجذاب
+        editor.setTheme("ace/theme/dracula");
         editor.setFontSize(14); 
 
-        // 2. إيجاد العناصر الهامة
+        // 4. إيجاد العناصر الهامة
         const runButton = document.getElementById('run-button');
         const outputElement = document.getElementById('output');
         const languageSelect = document.getElementById('language-select');
         
-        // ***************************************************************
-        // !!! تغيير هام للنشر !!!
-        // يجب استبدال الرابط أدناه بالرابط الذي ستحصل عليه من Render بعد النشر (مثال: 'https://my-code-runner.onrender.com/execute')
-        const EXECUTION_SERVER_URL = 'http://localhost:3000/execute'; 
-        // ***************************************************************
-
         // دالة لتغيير وضع المحرر بناءً على اللغة المختارة
         languageSelect.addEventListener('change', () => {
             const lang = languageSelect.value;
@@ -180,14 +193,14 @@
             // تعيين وضع التمييز والاحتفاظ بالكود إن لم يكن فارغاً
             editor.session.setMode(mode);
             if (editor.getValue().trim() === '' || editor.getValue().includes('مرحباً')) {
-                editor.setValue(sampleCode, 1); // وضع الكود الافتراضي
+                editor.setValue(sampleCode, 1);
             }
         });
 
         // ضبط الوضع الافتراضي عند التحميل
         languageSelect.dispatchEvent(new Event('change'));
 
-        // 3. دالة تشغيل الكود
+        // 5. دالة تشغيل الكود
         async function runCode() {
             const code = editor.getValue();
             const language = languageSelect.value;
@@ -195,10 +208,11 @@
             outputElement.textContent = '... يتم تشغيل الكود ...';
             runButton.disabled = true;
             runButton.textContent = 'جاري التنفيذ...';
-            outputElement.style.color = '#d4d4d4'; // لون مؤقت
+            outputElement.style.color = '#d4d4d4';
 
             try {
-                const response = await fetch(EXECUTION_SERVER_URL, {
+                // استخدام الرابط المخزن حديثاً
+                const response = await fetch(EXECUTION_SERVER_URL, { 
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
@@ -217,7 +231,7 @@
 
                 // عرض النتيجة
                 if (result.error) {
-                    outputElement.style.color = '#ff6347'; // أحمر فاتح للأخطاء
+                    outputElement.style.color = '#ff6347';
                     outputElement.textContent = `خطأ في التنفيذ:\n${result.error}`;
                 } else {
                     outputElement.style.color = '#00ff00';
@@ -225,15 +239,15 @@
                 }
 
             } catch (error) {
-                outputElement.style.color = '#ffd700'; // أصفر لأخطاء الشبكة/الاتصال
-                outputElement.textContent = `خطأ في الاتصال أو الخادم: ${error.message}`;
+                outputElement.style.color = '#ffd700';
+                outputElement.textContent = `خطأ في الاتصال أو الخادم: ${error.message}\nتأكد أن الرابط ${EXECUTION_SERVER_URL} يعمل وأن الخادم قيد التشغيل في Render.`;
             } finally {
                 runButton.disabled = false;
                 runButton.textContent = '▶ تشغيل الكود';
             }
         }
 
-        // 4. ربط الزر بالدالة
+        // 6. ربط الزر بالدالة
         runButton.addEventListener('click', runCode);
 
     </script>
