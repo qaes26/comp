@@ -13,8 +13,8 @@ const PORT = process.env.PORT || 3000;
 app.use(cors());
 app.use(express.json());
 
-// دالة لتنفيذ الكود
-async function executeCode(code, language, res) {
+// دالة لتنفيذ الكود مع الإدخال
+async function executeCode(code, language, input, res) {
     let tempFileName = '';
     let executeCommand = '';
     const tempBaseName = `temp_script_${Date.now()}`;
@@ -24,11 +24,11 @@ async function executeCode(code, language, res) {
         if (language === 'python') {
             tempFileName = path.join(__dirname, `${tempBaseName}.py`);
             await fs.writeFile(tempFileName, code);
-            executeCommand = `python3 ${tempFileName}`; // استخدام python3 لضمان التوافق على Render
+            executeCommand = `python3 ${tempFileName}`;
         } else if (language === 'cpp') {
             // مسارات لملفات C++
             tempFileName = path.join(__dirname, `${tempBaseName}.cpp`);
-            const outputFileName = path.join(__dirname, tempBaseName); // اسم الملف الناتج بعد التجميع
+            const outputFileName = path.join(__dirname, tempBaseName); 
             
             // 1. كتابة كود C++ إلى الملف
             await fs.writeFile(tempFileName, code);
@@ -36,8 +36,6 @@ async function executeCode(code, language, res) {
             // 2. أمر التجميع (Compilation): استخدام g++
             const compileCommand = `g++ ${tempFileName} -o ${outputFileName}`;
             
-            console.log(`[LOG] بدء تجميع C++: ${tempFileName}`);
-
             // تنفيذ التجميع
             const { stderr: compileError } = await new Promise((resolve) => {
                 exec(compileCommand, (error, stdout, stderr) => {
@@ -58,14 +56,14 @@ async function executeCode(code, language, res) {
         }
 
         // تنفيذ الأمر النهائي (Python أو C++ المجمّع)
-        exec(executeCommand, { timeout: timeout }, (error, stdout, stderr) => {
+        // يتم تمرير الإدخال (input) إلى البرنامج عبر `input` في options
+        exec(executeCommand, { timeout: timeout, input: input }, (error, stdout, stderr) => {
             
             // 4. حذف الملفات المؤقتة
             const cleanup = async () => {
                 if (language === 'python') {
                     await fs.unlink(tempFileName).catch(e => console.error("فشل حذف ملف Python المؤقت:", e.message));
                 } else if (language === 'cpp') {
-                    // حذف ملف الكود المصدر (cpp) وملف التنفيذ (ملف التنفيذ)
                     const outputFileName = path.join(__dirname, tempBaseName);
                     await fs.unlink(tempFileName).catch(e => console.error("فشل حذف ملف C++ المصدر:", e.message));
                     fs.unlink(outputFileName).catch(e => console.error("فشل حذف ملف C++ التنفيذي:", e.message));
@@ -75,18 +73,13 @@ async function executeCode(code, language, res) {
             
             // 5. إرسال النتيجة
             if (error) {
-                // حدث خطأ في التنفيذ (Runtime Error)
-                console.error('[EXEC ERROR]:', stderr || error.message);
                 return res.json({ output: null, error: stderr || error.message });
             }
             
-            console.log('[LOG] تم التنفيذ بنجاح.');
             res.json({ output: stdout, error: null });
         });
 
     } catch (e) {
-        // 6. التعامل مع أخطاء الخادم الداخلية (مثل مشاكل الكتابة على القرص)
-        console.error('[SERVER ERROR]:', e);
         res.status(500).json({ 
             error: 'حدث خطأ غير متوقع في الخادم أثناء محاولة تشغيل الكود.',
             details: e.message 
@@ -97,19 +90,18 @@ async function executeCode(code, language, res) {
 
 // --- نقطة نهاية التنفيذ (API Endpoint) ---
 app.post('/execute', async (req, res) => {
-    const { code, language } = req.body;
-
+    const { code, language, input } = req.body; // جلب الإدخال
+    
     if (!code || !language) {
         return res.status(400).json({ error: 'الرجاء توفير الكود واللغة.' });
     }
     
-    // تمرير عملية التنفيذ إلى الدالة الرئيسية
-    await executeCode(code, language.toLowerCase(), res);
+    // تمرير عملية التنفيذ إلى الدالة الرئيسية مع الإدخال
+    await executeCode(code, language.toLowerCase(), input || '', res);
 });
 
 
 // --- تشغيل الخادم ---
 app.listen(PORT, () => {
     console.log(`\n🎉 الخادم جاهز ويعمل على المنفذ: http://localhost:${PORT}`);
-    console.log('ملاحظة: تأكد من أن أمر "python3" و "g++" يعملان في الطرفية قبل النشر.');
 });
