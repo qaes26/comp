@@ -3,7 +3,7 @@ const express = require('express');
 const cors = require('cors');
 const { exec } = require('child_process');
 const fs = require('fs/promises'); 
-const path = require('path');
+const path = require('path'); // *مهم* لاستخدام المسارات
 
 const app = express();
 // استخدام منفذ Render (PORT)
@@ -19,6 +19,7 @@ async function executeCode(code, language, input, res) {
     let executeCommand = '';
     const tempBaseName = `temp_script_${Date.now()}`;
     const timeout = 10000; // 10 ثواني كحد أقصى للتنفيذ
+    const outputFileName = path.join(__dirname, tempBaseName); // المسار الكامل للملف التنفيذي
 
     try {
         if (language === 'python') {
@@ -28,7 +29,6 @@ async function executeCode(code, language, input, res) {
         } else if (language === 'cpp') {
             // مسارات لملفات C++
             tempFileName = path.join(__dirname, `${tempBaseName}.cpp`);
-            const outputFileName = path.join(__dirname, tempBaseName); 
             
             // 1. كتابة كود C++ إلى الملف
             await fs.writeFile(tempFileName, code);
@@ -48,8 +48,15 @@ async function executeCode(code, language, input, res) {
                 return res.json({ output: null, error: `خطأ في التجميع:\n${compileError}` });
             }
 
-            // 3. أمر التنفيذ (Execution)
-            // *** تم التعديل هنا لضمان التنفيذ في Docker ***
+            // 3. منح إذن التشغيل (chmod +x)
+            await new Promise((resolve, reject) => {
+                exec(`chmod +x ${outputFileName}`, (error) => {
+                    if (error) return reject(error);
+                    resolve();
+                });
+            });
+            
+            // 4. أمر التنفيذ (Execution) بعد منح الإذن
             executeCommand = `./${tempBaseName}`; 
         
         } else {
@@ -57,22 +64,21 @@ async function executeCode(code, language, input, res) {
         }
 
         // تنفيذ الأمر النهائي (Python أو C++ المجمّع)
-        // يتم تمرير الإدخال (input) إلى البرنامج عبر `input` في options
         exec(executeCommand, { timeout: timeout, input: input }, (error, stdout, stderr) => {
             
-            // 4. حذف الملفات المؤقتة
+            // 5. حذف الملفات المؤقتة
             const cleanup = async () => {
-                if (language === 'python') {
-                    await fs.unlink(tempFileName).catch(e => console.error("فشل حذف ملف Python المؤقت:", e.message));
-                } else if (language === 'cpp') {
-                    const outputFileName = path.join(__dirname, tempBaseName);
-                    await fs.unlink(tempFileName).catch(e => console.error("فشل حذف ملف C++ المصدر:", e.message));
-                    fs.unlink(outputFileName).catch(e => console.error("فشل حذف ملف C++ التنفيذي:", e.message));
+                // حذف ملف الكود المصدر
+                await fs.unlink(tempFileName).catch(e => console.error("فشل حذف الملف المصدر:", e.message));
+                
+                // حذف الملف التنفيذي فقط إذا كان C++
+                if (language === 'cpp') {
+                    fs.unlink(outputFileName).catch(e => console.error("فشل حذف الملف التنفيذي:", e.message));
                 }
             };
             cleanup();
             
-            // 5. إرسال النتيجة
+            // 6. إرسال النتيجة
             if (error) {
                 return res.json({ output: null, error: stderr || error.message });
             }
@@ -82,7 +88,7 @@ async function executeCode(code, language, input, res) {
 
     } catch (e) {
         res.status(500).json({ 
-            error: 'حدث خطأ غير متوقع في الخادم أثناء محاولة تشغيل الكود.',
+            error: `حدث خطأ داخلي في الخادم (ربما فشل منح إذن التشغيل): ${e.message}`,
             details: e.message 
         });
     }
@@ -98,6 +104,13 @@ app.post('/execute', async (req, res) => {
     }
     
     await executeCode(code, language.toLowerCase(), input || '', res);
+});
+
+
+// --- نقطة نهاية لعرض الواجهة الأمامية (HTML) ---
+app.get('/', (req, res) => {
+    // *عند زيارة الرابط العام، أرسل ملف index.html*
+    res.sendFile(path.join(__dirname, 'index.html'));
 });
 
 
