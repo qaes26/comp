@@ -1,10 +1,10 @@
 {
-  "name": "coding-platform",
+  "name": "comp",
   "version": "1.0.0",
   "description": "A free online code executor.",
   "main": "server.js",
   "scripts": {
-    "start": "node server.js",  <-- هذا السطر هو مفتاح التشغيل على Render
+    "start": "node server.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [
@@ -16,6 +16,5 @@
   "dependencies": {
     "cors": "^2.8.5",
     "express": "^4.19.2"
-    // لقد قمنا بحذف "compiler-api" و "compiler-api" لأننا نستخدم child_process الآن.
   }
 }
