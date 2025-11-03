@@ -10,6 +10,5 @@ services:
   envVars:
   - key: NODE_VERSION
     value: 22.x
-  # التثبيت يدوياً لأدوات النظام (C++ و Python)
-  autoDeploy: false # مؤقتاً لضمان نجاح التثبيت
+  # أمر التثبيت المسبق لأدوات النظام (g++ و python3)
   preBuild: sudo apt-get update && sudo apt-get install -y python3 g++
