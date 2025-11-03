@@ -3,13 +3,11 @@ const express = require('express');
 const cors = require('cors');
 const { exec } = require('child_process');
 const fs = require('fs/promises'); 
-const path = require('path'); // *مهم* لاستخدام المسارات
+const path = require('path'); 
 
 const app = express();
-// استخدام منفذ Render (PORT)
 const PORT = process.env.PORT || 3000;
 
-// --- الإعدادات الوسيطة (Middleware) ---
 app.use(cors());
 app.use(express.json());
 
@@ -18,8 +16,8 @@ async function executeCode(code, language, input, res) {
     let tempFileName = '';
     let executeCommand = '';
     const tempBaseName = `temp_script_${Date.now()}`;
-    const timeout = 10000; // 10 ثواني كحد أقصى للتنفيذ
-    const outputFileName = path.join(__dirname, tempBaseName); // المسار الكامل للملف التنفيذي
+    const timeout = 10000;
+    const outputFileName = path.join(__dirname, tempBaseName);
 
     try {
         if (language === 'python') {
@@ -27,7 +25,6 @@ async function executeCode(code, language, input, res) {
             await fs.writeFile(tempFileName, code);
             executeCommand = `python3 ${tempFileName}`;
         } else if (language === 'cpp') {
-            // مسارات لملفات C++
             tempFileName = path.join(__dirname, `${tempBaseName}.cpp`);
             
             // 1. كتابة كود C++ إلى الملف
@@ -44,41 +41,29 @@ async function executeCode(code, language, input, res) {
             });
             
             if (compileError) {
-                // فشل التجميع
                 return res.json({ output: null, error: `خطأ في التجميع:\n${compileError}` });
             }
 
-            // 3. منح إذن التشغيل (chmod +x)
-            await new Promise((resolve, reject) => {
-                exec(`chmod +x ${outputFileName}`, (error) => {
-                    if (error) return reject(error);
-                    resolve();
-                });
-            });
-            
-            // 4. أمر التنفيذ (Execution) بعد منح الإذن
-            executeCommand = `./${tempBaseName}`; 
+            // *** 3. الحل القطعي: تشغيل الملف المجمّع باستخدام `bash -c` لتجاوز مشكلة الأذونات ***
+            executeCommand = `bash -c "./${tempBaseName}"`;
         
         } else {
             return res.status(400).json({ error: 'اللغة غير مدعومة. (تدعم: python, cpp)' });
         }
 
-        // تنفيذ الأمر النهائي (Python أو C++ المجمّع)
+        // تنفيذ الأمر النهائي
         exec(executeCommand, { timeout: timeout, input: input }, (error, stdout, stderr) => {
             
-            // 5. حذف الملفات المؤقتة
+            // 4. حذف الملفات المؤقتة
             const cleanup = async () => {
-                // حذف ملف الكود المصدر
                 await fs.unlink(tempFileName).catch(e => console.error("فشل حذف الملف المصدر:", e.message));
-                
-                // حذف الملف التنفيذي فقط إذا كان C++
                 if (language === 'cpp') {
                     fs.unlink(outputFileName).catch(e => console.error("فشل حذف الملف التنفيذي:", e.message));
                 }
             };
             cleanup();
             
-            // 6. إرسال النتيجة
+            // 5. إرسال النتيجة
             if (error) {
                 return res.json({ output: null, error: stderr || error.message });
             }
@@ -88,7 +73,7 @@ async function executeCode(code, language, input, res) {
 
     } catch (e) {
         res.status(500).json({ 
-            error: `حدث خطأ داخلي في الخادم (ربما فشل منح إذن التشغيل): ${e.message}`,
+            error: `حدث خطأ داخلي في الخادم: ${e.message}`,
             details: e.message 
         });
     }
@@ -109,7 +94,7 @@ app.post('/execute', async (req, res) => {
 
 // --- نقطة نهاية لعرض الواجهة الأمامية (HTML) ---
 app.get('/', (req, res) => {
-    // *عند زيارة الرابط العام، أرسل ملف index.html*
+    const path = require('path'); 
     res.sendFile(path.join(__dirname, 'index.html'));
 });
 
