@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>محرر ومفسر الأكواد المجنون (Qaes AI)</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/ace/1.32.7/ace.js"></script>
+    
+    <style>
+        /* التنسيقات الأساسية */
+        body { 
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+            display: flex; 
+            flex-direction: column; 
+            height: 100vh; 
+            margin: 0; 
+            background-color: #1e1e1e; /* خلفية داكنة */
+            color: #d4d4d4;
+        }
+        
+        /* رأس الصفحة */
+        header { 
+            background-color: #252526; 
+            color: #007acc; /* لون أزرق جذاب */
+            padding: 15px 20px; 
+            text-align: center; 
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.2);
+        }
+        h1 { margin: 0; font-size: 1.8em; }
+
+        /* حاوية الأقسام */
+        .container { 
+            display: flex; 
+            flex: 1; 
+            padding: 20px; 
+            gap: 20px; 
+            max-width: 1200px;
+            width: 100%;
+            margin: 0 auto; /* توسيط الحاوية */
+        }
+        
+        /* لوحات المحرر والنتائج */
+        .editor-panel, .output-panel { 
+            flex: 1; 
+            display: flex; 
+            flex-direction: column; 
+            background-color: #1e1e1e; 
+            border-radius: 10px; 
+            box-shadow: 0 0 15px rgba(0, 0, 0, 0.5); 
+            overflow: hidden; 
+        }
+        
+        /* رأس اللوحة (العنوان وزر التشغيل) */
+        .panel-header { 
+            background-color: #333333; 
+            padding: 10px 15px; 
+            font-weight: bold; 
+            border-bottom: 1px solid #007acc;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        /* تنسيق المحرر */
+        #editor { 
+            flex: 1; 
+            min-height: 300px; 
+            border-radius: 0 0 10px 10px;
+        } 
+        
+        /* تنسيق لوحة النتائج */
+        #output { 
+            flex: 1; 
+            padding: 15px; 
+            white-space: pre-wrap; 
+            overflow-y: auto; 
+            background-color: #000000; 
+            color: #00ff00; /* لون أخضر للمخرجات */
+            font-family: 'Consolas', 'Courier New', monospace; 
+            border-radius: 0 0 10px 10px;
+        }
+
+        /* زر التشغيل وقائمة اللغة */
+        .controls {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+        #run-button { 
+            padding: 8px 15px; 
+            background-color: #007acc; 
+            color: white; 
+            border: none; 
+            border-radius: 4px; 
+            cursor: pointer; 
+            transition: background-color 0.2s; 
+            font-weight: bold;
+        }
+        #run-button:hover { background-color: #005699; }
+        
+        #language-select {
+            padding: 8px;
+            border-radius: 4px;
+            background-color: #444;
+            color: white;
+            border: 1px solid #007acc;
+        }
+
+        /* تنسيق للعرض في شاشات أصغر */
+        @media (max-width: 800px) {
+            .container {
+                flex-direction: column;
+                padding: 10px;
+            }
+            .editor-panel, .output-panel {
+                min-height: 40vh;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <header>
+        <h1>محرر ومفسر الأكواد المجنون (Qaes AI)</h1>
+    </header>
+
+    <div class="container">
+        <div class="editor-panel">
+            <div class="panel-header">
+                الكود:
+                <div class="controls">
+                    <label for="language-select">اختر اللغة:</label>
+                    <select id="language-select">
+                        <option value="python">Python</option>
+                        <option value="cpp">C++</option>
+                    </select>
+                    <button id="run-button">▶ تشغيل الكود</button>
+                </div>
+            </div>
+            <div id="editor"></div>
+        </div>
+
+        <div class="output-panel">
+            <div class="panel-header" style="justify-content: flex-start;">النتيجة:</div>
+            <pre id="output">سيظهر ناتج التنفيذ هنا...</pre>
+        </div>
+    </div>
+
+    <script>
+        // 1. إعداد محرر Ace Editor
+        var editor = ace.edit("editor");
+        editor.setTheme("ace/theme/dracula"); // ثيم داكن وجذاب
+        editor.setFontSize(14); 
+
+        // 2. إيجاد العناصر الهامة
+        const runButton = document.getElementById('run-button');
+        const outputElement = document.getElementById('output');
+        const languageSelect = document.getElementById('language-select');
+        
+        // ***************************************************************
+        // !!! تغيير هام للنشر !!!
+        // يجب استبدال الرابط أدناه بالرابط الذي ستحصل عليه من Render بعد النشر (مثال: 'https://my-code-runner.onrender.com/execute')
+        const EXECUTION_SERVER_URL = 'http://localhost:3000/execute'; 
+        // ***************************************************************
+
+        // دالة لتغيير وضع المحرر بناءً على اللغة المختارة
+        languageSelect.addEventListener('change', () => {
+            const lang = languageSelect.value;
+            let mode = "";
+            let sampleCode = "";
+
+            if (lang === 'python') {
+                mode = "ace/mode/python";
+                sampleCode = '# مرحباً يا طلال، جرب الآن!\nprint("الخادم يعمل بنجاح!")\nprint(2 + 2)';
+            } else if (lang === 'cpp') {
+                mode = "ace/mode/c_cpp";
+                sampleCode = '#include <iostream>\n\nint main() {\n    std::cout << "مرحباً يا عالم C++!" << std::endl;\n    return 0;\n}';
+            }
+            
+            // تعيين وضع التمييز والاحتفاظ بالكود إن لم يكن فارغاً
+            editor.session.setMode(mode);
+            if (editor.getValue().trim() === '' || editor.getValue().includes('مرحباً')) {
+                editor.setValue(sampleCode, 1); // وضع الكود الافتراضي
+            }
+        });
+
+        // ضبط الوضع الافتراضي عند التحميل
+        languageSelect.dispatchEvent(new Event('change'));
+
+        // 3. دالة تشغيل الكود
+        async function runCode() {
+            const code = editor.getValue();
+            const language = languageSelect.value;
+            
+            outputElement.textContent = '... يتم تشغيل الكود ...';
+            runButton.disabled = true;
+            runButton.textContent = 'جاري التنفيذ...';
+            outputElement.style.color = '#d4d4d4'; // لون مؤقت
+
+            try {
+                const response = await fetch(EXECUTION_SERVER_URL, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ 
+                        code: code,
+                        language: language
+                    }),
+                });
+
+                if (!response.ok) {
+                    throw new Error(`خطأ في الخادم: ${response.statusText}`);
+                }
+
+                const result = await response.json();
+
+                // عرض النتيجة
+                if (result.error) {
+                    outputElement.style.color = '#ff6347'; // أحمر فاتح للأخطاء
+                    outputElement.textContent = `خطأ في التنفيذ:\n${result.error}`;
+                } else {
+                    outputElement.style.color = '#00ff00';
+                    outputElement.textContent = result.output || '(تم التنفيذ بنجاح، لا يوجد مخرجات)';
+                }
+
+            } catch (error) {
+                outputElement.style.color = '#ffd700'; // أصفر لأخطاء الشبكة/الاتصال
+                outputElement.textContent = `خطأ في الاتصال أو الخادم: ${error.message}`;
+            } finally {
+                runButton.disabled = false;
+                runButton.textContent = '▶ تشغيل الكود';
+            }
+        }
+
+        // 4. ربط الزر بالدالة
+        runButton.addEventListener('click', runCode);
+
+    </script>
+</body>
+</html>
