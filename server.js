@@ -49,7 +49,8 @@ async function executeCode(code, language, input, res) {
             }
 
             // 3. أمر التنفيذ (Execution)
-            executeCommand = `${outputFileName}`; 
+            // *** تم التعديل هنا لضمان التنفيذ في Docker ***
+            executeCommand = `./${tempBaseName}`; 
         
         } else {
             return res.status(400).json({ error: 'اللغة غير مدعومة. (تدعم: python, cpp)' });
@@ -90,13 +91,12 @@ async function executeCode(code, language, input, res) {
 
 // --- نقطة نهاية التنفيذ (API Endpoint) ---
 app.post('/execute', async (req, res) => {
-    const { code, language, input } = req.body; // جلب الإدخال
+    const { code, language, input } = req.body; 
     
     if (!code || !language) {
         return res.status(400).json({ error: 'الرجاء توفير الكود واللغة.' });
     }
     
-    // تمرير عملية التنفيذ إلى الدالة الرئيسية مع الإدخال
     await executeCode(code, language.toLowerCase(), input || '', res);
 });
 
