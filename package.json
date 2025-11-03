@@ -1,4 +1,5 @@
 {
+  "type": "module",
   "name": "comp",
   "version": "1.0.0",
   "description": "A free online code executor.",
